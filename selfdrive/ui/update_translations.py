@@ -4,8 +4,12 @@ import os
 from openpilot.common.basedir import BASEDIR
 from openpilot.system.ui.lib.multilang import SYSTEM_UI_DIR, UI_DIR, TRANSLATIONS_DIR, multilang
 
-LANGUAGES_FILE = os.path.join(str(TRANSLATIONS_DIR), "languages.json")
-POT_FILE = os.path.join(str(TRANSLATIONS_DIR), "app.pot")
+UI_DIR = os.path.join(BASEDIR, "selfdrive", "ui")
+FROGPILOT_UI_DIR = os.path.join(BASEDIR, "frogpilot", "ui")
+TRANSLATIONS_DIR = os.path.join(UI_DIR, "translations")
+LANGUAGES_FILE = os.path.join(TRANSLATIONS_DIR, "languages.json")
+TRANSLATIONS_INCLUDE_FILE = os.path.join(TRANSLATIONS_DIR, "alerts_generated.h")
+PLURAL_ONLY = ["main_en"]  # base language, only create entries for strings with plural forms
 
 
 def update_translations():
@@ -26,16 +30,20 @@ def update_translations():
   ret = os.system(cmd)
   assert ret == 0
 
-  # Generate/update translation files for each language
-  for name in multilang.languages.values():
-    if os.path.exists(os.path.join(TRANSLATIONS_DIR, f"app_{name}.po")):
-      cmd = f"msgmerge --update --no-fuzzy-matching --backup=none --sort-output {TRANSLATIONS_DIR}/app_{name}.po {POT_FILE}"
-      ret = os.system(cmd)
-      assert ret == 0
-    else:
-      cmd = f"msginit -l {name} --no-translator --input {POT_FILE} --output-file {TRANSLATIONS_DIR}/app_{name}.po"
-      ret = os.system(cmd)
-      assert ret == 0
+def update_translations(vanish: bool = False, translation_files: None | list[str] = None, translations_dir: str = TRANSLATIONS_DIR):
+  if translation_files is None:
+    with open(LANGUAGES_FILE) as f:
+      translation_files = json.load(f).values()
+
+  for file in translation_files:
+    tr_file = os.path.join(translations_dir, f"{file}.ts")
+    args = f"lupdate -locations none -recursive {UI_DIR} {FROGPILOT_UI_DIR} -ts {tr_file} -I {BASEDIR}"
+    if vanish:
+      args += " -no-obsolete"
+    if file in PLURAL_ONLY:
+      args += " -pluralonly"
+    ret = os.system(args)
+    assert ret == 0
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import pyray as rl
 from openpilot.system.ui.lib.application import FontWeight, MousePos, gui_app
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.widgets import list_view as lv
-from openpilot.system.ui.widgets.list_view import ButtonAction, ItemAction, ListItem, MultipleButtonAction, ToggleAction, _resolve_value
+from openpilot.system.ui.widgets.list_view import ButtonAction, ItemAction, ListItem, MultipleButtonAction, TextAction, ToggleAction, _resolve_value
 
 BUTTON_HEIGHT = lv.BUTTON_HEIGHT
 BUTTON_WIDTH = lv.BUTTON_WIDTH
@@ -197,6 +197,67 @@ class FrogPilotMultipleButtonAction(MultipleButtonAction):
       button_x += button_width + spacing
 
 
+class FrogPilotButtonToggleAction(ItemAction):
+  def __init__(self, buttons: list[str | Callable[[], str]], state_getters: list[Callable[[], bool]],
+               state_setters: list[Callable[[bool], None]], button_width: int = BUTTON_WIDTH,
+               enabled: bool | Callable[[], bool] = True):
+    total_width = button_width * len(buttons) + RIGHT_ITEM_PADDING * max(0, len(buttons) - 1)
+    super().__init__(total_width, enabled)
+    self.buttons = buttons
+    self._state_getters = state_getters
+    self._state_setters = state_setters
+    self.button_width = button_width
+    self._font = gui_app.font(FontWeight.MEDIUM)
+
+  def _get_button_width(self, text: str | Callable[[], str]) -> int:
+    text = _resolve_value(text, "")
+    text_width = measure_text_cached(self._font, text, 40).x
+    return max(self.button_width, int(text_width + (MULTI_BUTTON_TEXT_PADDING * 2)))
+
+  def get_width_hint(self) -> float:
+    button_widths = [self._get_button_width(text) for text in self.buttons]
+    return sum(button_widths) + max(0, len(button_widths) - 1) * RIGHT_ITEM_PADDING
+
+  def _render(self, rect: rl.Rectangle):
+    spacing = RIGHT_ITEM_PADDING
+    button_y = rect.y + (rect.height - BUTTON_HEIGHT) / 2
+    button_x = rect.x
+
+    for i, _text in enumerate(self.buttons):
+      button_width = self._get_button_width(_text)
+      button_rect = rl.Rectangle(button_x, button_y, button_width, BUTTON_HEIGHT)
+      is_active = self._state_getters[i]()
+
+      if is_active:
+        bg_color = rl.Color(51, 171, 76, 255)
+      else:
+        bg_color = rl.Color(57, 57, 57, 255)
+
+      if not self.enabled:
+        bg_color = rl.Color(bg_color.r, bg_color.g, bg_color.b, 150)
+
+      rl.draw_rectangle_rounded(button_rect, 1.0, 20, bg_color)
+
+      text = _resolve_value(_text, "")
+      text_size = measure_text_cached(self._font, text, 40)
+      text_x = button_x + (button_width - text_size.x) / 2
+      text_y = button_y + (BUTTON_HEIGHT - text_size.y) / 2
+      text_color = rl.Color(228, 228, 228, 255) if self.enabled else rl.Color(150, 150, 150, 255)
+      rl.draw_text_ex(self._font, text, rl.Vector2(text_x, text_y), 40, 0, text_color)
+      button_x += button_width + spacing
+
+  def _handle_mouse_release(self, mouse_pos: MousePos):
+    spacing = RIGHT_ITEM_PADDING
+    button_y = self._rect.y + (self._rect.height - BUTTON_HEIGHT) / 2
+    button_x = self._rect.x
+    for i in range(len(self.buttons)):
+      button_width = self._get_button_width(self.buttons[i])
+      button_rect = rl.Rectangle(button_x, button_y, button_width, BUTTON_HEIGHT)
+      if rl.check_collision_point_rec(mouse_pos, button_rect) and self.enabled:
+        self._state_setters[i](not self._state_getters[i]())
+      button_x += button_width + spacing
+
+
 class FrogPilotNumericControl(ItemAction):
   def __init__(self, value_getter: Callable[[], int], value_setter: Callable[[int], None],
                value_formatter: Callable[[int], str] | None = None, min_value: int = 0, max_value: int = 100,
@@ -273,6 +334,41 @@ class FrogPilotNumericControl(ItemAction):
       rl.draw_text_ex(self._font, value_text, text_pos, ITEM_TEXT_FONT_SIZE, 0, value_color)
 
 
+class FrogPilotNumericWithButtonControl(ItemAction):
+  def __init__(self, value_getter: Callable[[], int], value_setter: Callable[[int], None],
+               value_formatter: Callable[[int], str] | None = None, min_value: int = 0, max_value: int = 100,
+               step: int = 1, button_text: str | Callable[[], str] = "Test",
+               button_callback: Callable | None = None, enabled: bool | Callable[[], bool] = True):
+    super().__init__(
+      width=BUTTON_WIDTH + RIGHT_ITEM_PADDING + (NUMERIC_BUTTON_WIDTH * 2) + NUMERIC_VALUE_WIDTH + (RIGHT_ITEM_PADDING * 2),
+      enabled=enabled,
+    )
+    self._numeric = FrogPilotNumericControl(
+      value_getter=value_getter, value_setter=value_setter, value_formatter=value_formatter,
+      min_value=min_value, max_value=max_value, step=step, enabled=enabled,
+    )
+    self._button = ButtonAction(text=button_text, width=BUTTON_WIDTH, enabled=enabled)
+    self._button_callback = button_callback
+
+  def set_touch_valid_callback(self, touch_callback: Callable[[], bool]) -> None:
+    super().set_touch_valid_callback(touch_callback)
+    self._numeric.set_touch_valid_callback(touch_callback)
+    self._button.set_touch_valid_callback(touch_callback)
+
+  def _render(self, rect: rl.Rectangle):
+    self._numeric.set_enabled(self.enabled)
+    self._button.set_enabled(self.enabled)
+
+    button_rect = rl.Rectangle(rect.x, rect.y, BUTTON_WIDTH, rect.height)
+    numeric_rect = rl.Rectangle(
+      rect.x + BUTTON_WIDTH + RIGHT_ITEM_PADDING, rect.y,
+      rect.width - BUTTON_WIDTH - RIGHT_ITEM_PADDING, rect.height,
+    )
+    if self._button.render(button_rect) and self.enabled and self._button_callback:
+      self._button_callback()
+    self._numeric.render(numeric_rect)
+
+
 def frogpilot_manage_control_item(title: str | Callable[[], str], description: str | Callable[[], str] | None = None, initial_state: bool = False,
                                   toggle_callback: Callable[[bool], None] | None = None, button_text: str | Callable[[], str] = "MANAGE",
                                   button_callback: Callable | None = None, icon: str = "", enabled: bool | Callable[[], bool] = True) -> ListItem:
@@ -315,4 +411,57 @@ def frogpilot_toggle_item(title: str | Callable[[], str], description: str | Cal
                           callback: Callable | None = None, icon: str = "",
                           enabled: bool | Callable[[], bool] = True) -> FrogPilotListItem:
   action = ToggleAction(initial_state=initial_state, enabled=enabled, callback=callback)
+  return FrogPilotListItem(title=title, description=description, action_item=action, icon=icon)
+
+
+def frogpilot_button_item(title: str | Callable[[], str], description: str | Callable[[], str] | None = None,
+                           button_text: str | Callable[[], str] = "SELECT", callback: Callable | None = None,
+                           icon: str = "", enabled: bool | Callable[[], bool] = True) -> FrogPilotListItem:
+  action = ButtonAction(text=button_text, width=BUTTON_WIDTH, enabled=enabled)
+  return FrogPilotListItem(title=title, description=description, action_item=action, icon=icon, callback=callback)
+
+
+def frogpilot_button_param_item(title: str | Callable[[], str], description: str | Callable[[], str] | None = None,
+                                 button_text: str | Callable[[], str] = "SELECT",
+                                 value_getter: str | Callable[[], str] | None = None, callback: Callable | None = None,
+                                 icon: str = "", enabled: bool | Callable[[], bool] = True) -> FrogPilotListItem:
+  action = ButtonAction(text=button_text, width=BUTTON_WIDTH, enabled=enabled)
+  if value_getter is not None:
+    action.set_value(value_getter)
+  return FrogPilotListItem(title=title, description=description, action_item=action, icon=icon, callback=callback)
+
+
+def frogpilot_button_toggle_item(title: str | Callable[[], str], description: str | Callable[[], str] | None = None,
+                                  buttons: list[str | Callable[[], str]] | None = None,
+                                  state_getters: list[Callable[[], bool]] | None = None,
+                                  state_setters: list[Callable[[bool], None]] | None = None,
+                                  button_width: int = BUTTON_WIDTH, icon: str = "",
+                                  enabled: bool | Callable[[], bool] = True) -> FrogPilotListItem:
+  action = FrogPilotButtonToggleAction(
+    buttons=buttons or [], state_getters=state_getters or [],
+    state_setters=state_setters or [], button_width=button_width, enabled=enabled,
+  )
+  return FrogPilotListItem(title=title, description=description, action_item=action, icon=icon)
+
+
+def frogpilot_label_item(title: str | Callable[[], str], description: str | Callable[[], str] | None = None,
+                          value_getter: str | Callable[[], str] = "", icon: str = "") -> FrogPilotListItem:
+  action = TextAction(text=value_getter, color=ITEM_TEXT_VALUE_COLOR)
+  return FrogPilotListItem(title=title, description=description, action_item=action, icon=icon)
+
+
+def frogpilot_numeric_with_button_item(title: str | Callable[[], str], description: str | Callable[[], str] | None = None,
+                                        value_getter: Callable[[], int] | None = None, value_setter: Callable[[int], None] | None = None,
+                                        value_formatter: Callable[[int], str] | None = None, min_value: int = 0, max_value: int = 100,
+                                        step: int = 1, button_text: str | Callable[[], str] = "Test",
+                                        button_callback: Callable | None = None, icon: str = "",
+                                        enabled: bool | Callable[[], bool] = True) -> FrogPilotListItem:
+  if value_getter is None or value_setter is None:
+    raise ValueError("frogpilot_numeric_with_button_item requires both value_getter and value_setter")
+
+  action = FrogPilotNumericWithButtonControl(
+    value_getter=value_getter, value_setter=value_setter, value_formatter=value_formatter,
+    min_value=min_value, max_value=max_value, step=step, button_text=button_text,
+    button_callback=button_callback, enabled=enabled,
+  )
   return FrogPilotListItem(title=title, description=description, action_item=action, icon=icon)

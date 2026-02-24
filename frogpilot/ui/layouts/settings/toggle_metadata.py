@@ -834,6 +834,7 @@ LONGITUDINAL_TOGGLES = (
     description=tr_noop("<b>How quickly openpilot speeds up.</b> \"Eco\" is gentle and efficient, \"Sport\" is firmer and more responsive, and \"Sport+\" accelerates at the maximum rate allowed."),
     toggle_type=ToggleType.BUTTON_PARAM,
     parent_param="LongitudinalTune",
+    button_labels=["SELECT"],
     button_options=["Standard", "Eco", "Sport", "Sport+"],
   ),
   ToggleDefinition(
@@ -842,6 +843,7 @@ LONGITUDINAL_TOGGLES = (
     description=tr_noop("<b>How firmly openpilot slows down.</b> \"Eco\" favors coasting, \"Sport\" applies stronger braking."),
     toggle_type=ToggleType.BUTTON_PARAM,
     parent_param="LongitudinalTune",
+    button_labels=["SELECT"],
     button_options=["Standard", "Eco", "Sport"],
   ),
   ToggleDefinition(
@@ -1199,6 +1201,7 @@ LONGITUDINAL_TOGGLES = (
     description=tr_noop("<b>The speed used by \"Speed Limit Controller\" when no speed limit is found.</b><br><br>- <b>Set Speed</b>: Use the cruise set speed<br>- <b>Experimental Mode</b>: Estimate the limit using the driving model<br>- <b>Previous Limit</b>: Keep using the last confirmed limit"),
     toggle_type=ToggleType.BUTTON_PARAM,
     parent_param="SpeedLimitController",
+    button_labels=["SELECT"],
     button_options=["Set Speed", "Experimental Mode", "Previous Limit"],
   ),
   ToggleDefinition(
@@ -1207,6 +1210,7 @@ LONGITUDINAL_TOGGLES = (
     description=tr_noop("<b>The speed used by \"Speed Limit Controller\" after you manually drive faster than the posted limit.</b><br><br>- <b>Set with Gas Pedal</b>: Use the highest speed reached while pressing the gas<br>- <b>Max Set Speed</b>: Use the cruise set speed<br><br>Overrides clear when openpilot disengages."),
     toggle_type=ToggleType.BUTTON_PARAM,
     parent_param="SpeedLimitController",
+    button_labels=["SELECT"],
     button_options=["None", "Set With Gas Pedal", "Max Set Speed"],
   ),
   ToggleDefinition(
@@ -2480,6 +2484,7 @@ VISUAL_TOGGLES = (
     description=tr_noop("<b>Select the active camera view.</b> This is purely a visual change and doesn't impact how openpilot drives!"),
     toggle_type=ToggleType.BUTTON_PARAM,
     parent_param="QOLVisuals",
+    button_labels=["SELECT"],
     button_options=["Auto", "Driver", "Standard", "Wide"],
   ),
   ToggleDefinition(
@@ -2568,6 +2573,7 @@ NAVIGATION_TOGGLES = (
     title=tr_noop("Automatically Update Maps"),
     description=tr_noop("<b>How often maps update</b> from \"OpenStreetMap (OSM)\" with the latest speed limit information. Weekly updates run every Sunday; monthly updates run on the 1st."),
     toggle_type=ToggleType.BUTTON_PARAM,
+    button_labels=["SELECT"],
     button_options=["Never", "Weekly", "Monthly"],
   ),
   ToggleDefinition(

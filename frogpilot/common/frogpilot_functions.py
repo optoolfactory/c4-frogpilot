@@ -230,7 +230,7 @@ def update_boot_logo(frogpilot=False, stock=False):
     print(f"Error: Target logo file not found at {target_logo}")
     return
 
-  if boot_logo_location.read_bytes() != target_logo.read_bytes():
+  #if boot_logo_location.read_bytes() != target_logo.read_bytes():
     #mount_options = frogpilot_utilities.run_cmd(["findmnt", "-n", "-o", "OPTIONS", "/"], "Successfully retrieved mount options", "Failed to retrieve mount options")
     #frogpilot_utilities.run_cmd(["sudo", "mount", "-o", "remount,rw", "/"], "Successfully remounted / as read-write", "Failed to remount /")
     #frogpilot_utilities.run_cmd(["sudo", "cp", target_logo, boot_logo_location], "Successfully replaced boot logo", "Failed to replace boot logo")
